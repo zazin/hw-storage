@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { randomUUID } from "node:crypto";
-import { s3, BUCKET, ensureBucket } from "@/lib/s3";
+import { s3, BUCKET, ensureBucket, BucketUnavailableError } from "@/lib/s3";
 import { insertImage, type ImageRecord } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -51,6 +51,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(record, { status: 201 });
   } catch (err) {
+    if (err instanceof BucketUnavailableError) {
+      console.error("upload failed: bucket unavailable", err.message);
+      return NextResponse.json(
+        { error: "Storage unavailable", detail: err.message },
+        { status: 503 },
+      );
+    }
     console.error("upload failed", err);
     return NextResponse.json(
       { error: "Upload failed", detail: String(err) },

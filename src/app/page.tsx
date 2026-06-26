@@ -66,7 +66,7 @@ export default function Home() {
       const res = await fetch("/api/reports", { method: "POST" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Report generation failed");
+        throw new Error(body.detail || body.error || "Report generation failed");
       }
       const report: ReportRecord = await res.json();
       await loadReports();
@@ -91,7 +91,7 @@ export default function Home() {
       const res = await fetch("/api/upload", { method: "POST", body: fd });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || "Upload failed");
+        throw new Error(body.detail || body.error || "Upload failed");
       }
       if (fileInput.current) fileInput.current.value = "";
       await load();

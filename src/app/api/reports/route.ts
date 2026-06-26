@@ -2,7 +2,13 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { randomUUID } from "node:crypto";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
-import { s3, BUCKET, ensureBucket, presignDownload } from "@/lib/s3";
+import {
+  s3,
+  BUCKET,
+  ensureBucket,
+  presignDownload,
+  BucketUnavailableError,
+} from "@/lib/s3";
 import { insertReport, listReports, type ReportRecord } from "@/lib/db";
 
 export const runtime = "nodejs";
@@ -91,6 +97,13 @@ export async function POST() {
     const url = await presignDownload(key, filename);
     return NextResponse.json({ ...record, url }, { status: 201 });
   } catch (err) {
+    if (err instanceof BucketUnavailableError) {
+      console.error("report generation failed: bucket unavailable", err.message);
+      return NextResponse.json(
+        { error: "Storage unavailable", detail: err.message },
+        { status: 503 },
+      );
+    }
     console.error("report generation failed", err);
     return NextResponse.json(
       { error: "Failed to generate report" },
