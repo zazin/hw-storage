@@ -11,6 +11,14 @@ export interface ImageRecord {
   created_at: string;
 }
 
+export interface ReportRecord {
+  id: string;
+  key: string;
+  filename: string;
+  size: number;
+  created_at: string;
+}
+
 const DB_PATH = process.env.DB_PATH || "./data/app.db";
 
 // Ensure the directory for the SQLite file exists.
@@ -33,6 +41,14 @@ db.exec(`
     size INTEGER NOT NULL,
     created_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS reports (
+    id TEXT PRIMARY KEY,
+    key TEXT NOT NULL,
+    filename TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    created_at TEXT NOT NULL
+  );
 `);
 
 export function insertImage(rec: ImageRecord): void {
@@ -51,5 +67,24 @@ export function listImages(): ImageRecord[] {
 export function getImage(id: string): ImageRecord | undefined {
   return db.prepare(`SELECT * FROM images WHERE id = ?`).get(id) as
     | ImageRecord
+    | undefined;
+}
+
+export function insertReport(rec: ReportRecord): void {
+  db.prepare(
+    `INSERT INTO reports (id, key, filename, size, created_at)
+     VALUES (@id, @key, @filename, @size, @created_at)`,
+  ).run(rec);
+}
+
+export function listReports(): ReportRecord[] {
+  return db
+    .prepare(`SELECT * FROM reports ORDER BY created_at DESC`)
+    .all() as ReportRecord[];
+}
+
+export function getReport(id: string): ReportRecord | undefined {
+  return db.prepare(`SELECT * FROM reports WHERE id = ?`).get(id) as
+    | ReportRecord
     | undefined;
 }

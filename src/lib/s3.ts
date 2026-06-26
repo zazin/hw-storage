@@ -2,7 +2,9 @@ import {
   S3Client,
   CreateBucketCommand,
   HeadBucketCommand,
+  GetObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 export const BUCKET = process.env.S3_BUCKET || "images";
 
@@ -39,4 +41,24 @@ export async function ensureBucket(): Promise<void> {
     }
   }
   bucketReady = true;
+}
+
+/**
+ * Generate a time-limited presigned GET URL for an object. The browser can use
+ * this to download directly from MinIO without going through the app.
+ */
+export async function presignDownload(
+  key: string,
+  filename: string,
+  expiresIn = 3600,
+): Promise<string> {
+  return getSignedUrl(
+    s3,
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${filename.replace(/"/g, "")}"`,
+    }),
+    { expiresIn },
+  );
 }

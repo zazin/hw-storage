@@ -11,6 +11,15 @@ interface ImageRecord {
   created_at: string;
 }
 
+interface ReportRecord {
+  id: string;
+  key: string;
+  filename: string;
+  size: number;
+  created_at: string;
+  url: string;
+}
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -19,7 +28,9 @@ function formatSize(bytes: number) {
 
 export default function Home() {
   const [images, setImages] = useState<ImageRecord[]>([]);
+  const [reports, setReports] = useState<ReportRecord[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
@@ -33,9 +44,40 @@ export default function Home() {
     }
   }, []);
 
+  const loadReports = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reports");
+      if (!res.ok) throw new Error("Failed to load reports");
+      setReports(await res.json());
+    } catch (e) {
+      setError(String(e));
+    }
+  }, []);
+
   useEffect(() => {
     load();
-  }, [load]);
+    loadReports();
+  }, [load, loadReports]);
+
+  const onGenerateReport = async () => {
+    setGenerating(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/reports", { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Report generation failed");
+      }
+      const report: ReportRecord = await res.json();
+      await loadReports();
+      // Open the freshly generated, storage-backed download link.
+      window.open(report.url, "_blank");
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const onUpload = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,13 +129,48 @@ export default function Home() {
           </button>
         </form>
         <div className="ml-auto">
-          <a
-            href="/api/report"
-            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700"
+          <button
+            type="button"
+            onClick={onGenerateReport}
+            disabled={generating}
+            className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 disabled:opacity-50"
           >
-            Download Excel Report
-          </a>
+            {generating ? "Generating…" : "Generate Excel Report"}
+          </button>
         </div>
+      </section>
+
+      <section className="mb-8">
+        <h2 className="mb-3 text-lg font-semibold">
+          Generated Reports ({reports.length})
+        </h2>
+        {reports.length === 0 ? (
+          <p className="text-sm text-gray-500">
+            No reports yet. Click “Generate Excel Report” to create one — it is
+            stored in object storage and downloadable via a generated link.
+          </p>
+        ) : (
+          <ul className="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-700 dark:border-gray-700">
+            {reports.map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center gap-3 px-4 py-2 text-sm"
+              >
+                <span className="font-medium">{r.filename}</span>
+                <span className="text-xs text-gray-500">
+                  {formatSize(r.size)} ·{" "}
+                  {new Date(r.created_at).toLocaleString()}
+                </span>
+                <a
+                  href={r.url}
+                  className="ml-auto text-blue-600 hover:underline"
+                >
+                  Download
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {error && (
